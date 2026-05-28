@@ -1,15 +1,31 @@
 
 package Views;
+
 import Controllers.AppController;
+import LibreriasConInteligenciaArtesanal.GrafoTurbo;
+import LibreriasConInteligenciaArtesanal.ListaIA;
+import models.Airport;
+import models.Flight;
+
+import com.mxgraph.layout.mxCircleLayout;
+import com.mxgraph.swing.mxGraphComponent;
+import com.mxgraph.view.mxGraph;
+
+import java.awt.BorderLayout;
+import java.util.HashMap;
+import java.util.Map;
+
+
 
 public class MainView extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(MainView.class.getName());
-    private Controllers.AppController controller = new Controllers.AppController();
+    private AppController controller = new AppController();
     
     
     public MainView() {
         initComponents();
+        refreshGraph();
     }
 
     
@@ -90,19 +106,27 @@ public class MainView extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void airportBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_airportBtnActionPerformed
-        // TODO add your handling code here:
+        AirportForm form = new AirportForm(controller, this::refreshGraph);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_airportBtnActionPerformed
 
     private void connectionsBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_connectionsBtnActionPerformed
-        // TODO add your handling code here:
+        ConnectionsForm form = new ConnectionsForm(controller);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_connectionsBtnActionPerformed
 
     private void flightBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_flightBtnActionPerformed
-        // TODO add your handling code here:
+        FlightForm form = new FlightForm(controller, this::refreshGraph);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_flightBtnActionPerformed
 
     private void routeFormActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_routeFormActionPerformed
-        // TODO add your handling code here:
+        RouteForm form = new RouteForm(controller);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_routeFormActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -115,15 +139,82 @@ public class MainView extends javax.swing.JFrame {
     // End of variables declaration//GEN-END:variables
 
     private void refreshGraph() {
-    jPanel1.removeAll();
-    com.mxgraph.swing.mxGraphComponent graphComp =
-        new com.mxgraph.swing.mxGraphComponent(new com.mxgraph.view.mxGraph());
-    // ... agregar vértices y aristas desde controller.getAirports()
-    jPanel1.setLayout(new java.awt.BorderLayout());
-    jPanel1.add(graphComp, java.awt.BorderLayout.CENTER);
-    jPanel1.revalidate();
-}
+        jPanel1.removeAll();
+        jPanel1.setLayout(new BorderLayout());
 
+        mxGraph graphView = new mxGraph();
+        Object parent = graphView.getDefaultParent();
 
+        Map<String, Object> vertexMap = new HashMap<>();
+
+        graphView.getModel().beginUpdate();
+
+        try {
+            ListaIA<Airport> airports = controller.getAirports();
+
+            for (int i = 0; i < airports.size(); i++) {
+                Airport airport = airports.getValue(i);
+
+                Object vertex = graphView.insertVertex(
+                        parent,
+                        null,
+                        airport.code,
+                        20,
+                        20,
+                        90,
+                        40
+                );
+
+                vertexMap.put(airport.code, vertex);
+            }
+
+            for (int i = 0; i < airports.size(); i++) {
+                Airport origin = airports.getValue(i);
+
+                ListaIA<GrafoTurbo.Connection<Airport, Flight>> connections =
+                        controller.getConnections(origin);
+
+                for (int j = 0; j < connections.size(); j++) {
+                    GrafoTurbo.Connection<Airport, Flight> connection =
+                            connections.getValue(j);
+
+                    Airport destination = connection.destination;
+                    Flight flight = connection.edge;
+
+                    /*
+                     * Tu GrafoTurbo.addConnection() agrega la conexión en ambos sentidos.
+                     * Esta condición evita dibujar la misma arista dos veces.
+                     */
+                    if (origin.code.compareTo(destination.code) < 0) {
+                        Object originVertex = vertexMap.get(origin.code);
+                        Object destinationVertex = vertexMap.get(destination.code);
+
+                        if (originVertex != null && destinationVertex != null) {
+                            graphView.insertEdge(
+                                    parent,
+                                    null,
+                                    controller.formatFlightForGraph(flight),
+                                    originVertex,
+                                    destinationVertex
+                            );
+                        }
+                    }
+                }
+            }
+
+        } finally {
+            graphView.getModel().endUpdate();
+        }
+
+        mxCircleLayout layout = new mxCircleLayout(graphView);
+        layout.execute(parent);
+
+        mxGraphComponent graphComponent = new mxGraphComponent(graphView);
+        graphComponent.setConnectable(false);
+
+        jPanel1.add(graphComponent, BorderLayout.CENTER);
+        jPanel1.revalidate();
+        jPanel1.repaint();
+    }
 
 }

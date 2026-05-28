@@ -184,4 +184,31 @@ public class AppController {
 
         return cleanText.substring(0, index);
     }
+    
+    public ListaIA<GrafoTurbo.Connection<Airport, Flight>> getConnections(Airport airport) {
+        if (airport == null) {
+            throw new IllegalArgumentException("El aeropuerto no puede ser nulo.");
+        }
+
+        return graph.getConnections(airport);
+    }
+
+    public String formatAirportForCombo(Airport airport) {
+        if (airport == null) {
+            return "";
+        }
+
+        return airport.code + " - " + airport.city + ", " + airport.country;
+    }
+
+    public String formatFlightForGraph(Flight flight) {
+        if (flight == null) {
+            return "";
+        }
+
+        return flight.flightNumber
+                + " | Q" + flight.price
+                + " | " + flight.distance + " km"
+                + " | " + flight.time + " min";
+    }
 }
