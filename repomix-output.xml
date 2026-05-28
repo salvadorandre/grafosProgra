@@ -112,37 +112,212 @@ import LibreriasConInteligenciaArtesanal.*;
 import models.*;
 
 public class AppController {
-    private GrafoTurbo<Airport, Flight> graph = new GrafoTurbo<>();
-    private Dijkstra<Airport, Flight> dijkstra = new Dijkstra<>();
 
-    // Registrar aeropuerto
-    public void addAirport(String code, String name, String country) {
-        graph.addNode(new Airport(code, name, country));
+    private GrafoTurbo<Airport, Flight> graph;
+    private Dijkstra<Airport, Flight> dijkstra;
+
+    public AppController() {
+        graph = new GrafoTurbo<>();
+        dijkstra = new Dijkstra<>();
     }
 
-    // Registrar vuelo (bidireccional)
-    public void addFlight(Airport origin, Airport dest,
-                          String num, double price, double dist, double time) {
-        graph.addConnection(origin, dest, new Flight(num, price, dist, time));
+    public void addAirport(String code, String city, String country) {
+        if (code == null || code.trim().isEmpty()) {
+            throw new IllegalArgumentException("El código es obligatorio.");
+        }
+
+        if (city == null || city.trim().isEmpty()) {
+            throw new IllegalArgumentException("La ciudad es obligatoria.");
+        }
+
+        if (country == null || country.trim().isEmpty()) {
+            throw new IllegalArgumentException("El país es obligatorio.");
+        }
+
+        Airport airport = new Airport(
+                code.trim().toUpperCase(),
+                city.trim(),
+                country.trim()
+        );
+
+        if (graph.containsNode(airport)) {
+            throw new IllegalArgumentException("Ya existe un aeropuerto con código: " + airport.code);
+        }
+
+        graph.addNode(airport);
     }
 
-    // Obtener todos los aeropuertos (para llenar combos en la UI)
+    public void addFlight(
+            Airport origin,
+            Airport destination,
+            String number,
+            double price,
+            double distance,
+            double time
+    ) {
+        if (origin == null || destination == null) {
+            throw new IllegalArgumentException("Debe seleccionar origen y destino.");
+        }
+
+        if (origin.equals(destination)) {
+            throw new IllegalArgumentException("El origen y destino no pueden ser iguales.");
+        }
+
+        if (number == null || number.trim().isEmpty()) {
+            throw new IllegalArgumentException("El número de vuelo es obligatorio.");
+        }
+
+        if (price < 0 || distance < 0 || time < 0) {
+            throw new IllegalArgumentException("Precio, distancia y tiempo no pueden ser negativos.");
+        }
+
+        Flight flight = new Flight(
+                number.trim().toUpperCase(),
+                price,
+                distance,
+                time
+        );
+
+        graph.addConnection(origin, destination, flight);
+    }
+
     public ListaIA<Airport> getAirports() {
         return graph.getNodes();
     }
 
-    // Buscar ruta
-    public Result<Airport> findRoute(Airport from, Airport to, String criterion) {
-        return switch (criterion) {
-            case "precio"    -> dijkstra.shortestPath(graph, from, to, new PriceCriterion());
-            case "tiempo"    -> dijkstra.shortestPath(graph, from, to, new TimeCriterion());
-            default          -> dijkstra.shortestPath(graph, from, to, new DistanceCriterion());
-        };
+    public Airport getAirportFromComboText(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return null;
+        }
+
+        String code = extractCode(text);
+
+        ListaIA<Airport> airports = graph.getNodes();
+
+        for (int i = 0; i < airports.size(); i++) {
+            Airport airport = airports.getValue(i);
+
+            if (airport.code.equalsIgnoreCase(code)) {
+                return airport;
+            }
+        }
+
+        return null;
     }
 
-    // Log de conexiones
+    public Result<Airport> findRoute(Airport origin, Airport destination, String criterion) {
+        if (origin == null || destination == null) {
+            throw new IllegalArgumentException("Debe seleccionar origen y destino.");
+        }
+
+        if (criterion == null || criterion.trim().isEmpty()) {
+            throw new IllegalArgumentException("Debe seleccionar un criterio.");
+        }
+
+        String cleanCriterion = criterion.trim().toLowerCase();
+
+        switch (cleanCriterion) {
+            case "precio":
+                return dijkstra.shortestPath(graph, origin, destination, new PriceCriterion());
+
+            case "tiempo":
+                return dijkstra.shortestPath(graph, origin, destination, new TimeCriterion());
+
+            case "distancia":
+                return dijkstra.shortestPath(graph, origin, destination, new DistanceCriterion());
+
+            default:
+                throw new IllegalArgumentException("Criterio inválido.");
+        }
+    }
+
     public String getConnectionsLog() {
         return graph.toString();
+    }
+
+    public String formatRoute(Result<Airport> result, String criterion) {
+        if (result == null || result.path == null || result.path.isEmpty()
+                || result.totalWeight == Double.POSITIVE_INFINITY) {
+            return "No existe una ruta entre los aeropuertos seleccionados.";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Total: ")
+                .append(result.totalWeight)
+                .append(" ")
+                .append(getUnit(criterion))
+                .append("\n");
+
+        sb.append("Ruta: ");
+
+        for (int i = 0; i < result.path.size(); i++) {
+            sb.append(result.path.getValue(i).code);
+
+            if (i < result.path.size() - 1) {
+                sb.append(" -> ");
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private String getUnit(String criterion) {
+        if (criterion == null) {
+            return "";
+        }
+
+        switch (criterion.trim().toLowerCase()) {
+            case "precio":
+                return "QTZ";
+
+            case "tiempo":
+                return "minutos";
+
+            case "distancia":
+                return "km";
+
+            default:
+                return "";
+        }
+    }
+
+    private String extractCode(String text) {
+        String cleanText = text.trim();
+        int index = cleanText.indexOf(" ");
+
+        if (index == -1) {
+            return cleanText;
+        }
+
+        return cleanText.substring(0, index);
+    }
+    
+    public ListaIA<GrafoTurbo.Connection<Airport, Flight>> getConnections(Airport airport) {
+        if (airport == null) {
+            throw new IllegalArgumentException("El aeropuerto no puede ser nulo.");
+        }
+
+        return graph.getConnections(airport);
+    }
+
+    public String formatAirportForCombo(Airport airport) {
+        if (airport == null) {
+            return "";
+        }
+
+        return airport.code + " - " + airport.city + ", " + airport.country;
+    }
+
+    public String formatFlightForGraph(Flight flight) {
+        if (flight == null) {
+            return "";
+        }
+
+        return flight.flightNumber
+                + " | Q" + flight.price
+                + " | " + flight.distance + " km"
+                + " | " + flight.time + " min";
     }
 }
 </file>
@@ -972,6 +1147,9 @@ public interface Weighable {
       <Properties>
         <Property name="text" type="java.lang.String" value="Guardar"/>
       </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="saveBtnActionPerformed"/>
+      </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="jLabel4">
       <Properties>
@@ -986,32 +1164,30 @@ public interface Weighable {
 </file>
 
 <file path="src/main/java/Views/AirportForm.java">
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package Views;
+import Controllers.AppController;
+import javax.swing.JOptionPane;
 
-/**
- *
- * @author allan
- */
 public class AirportForm extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(AirportForm.class.getName());
-
+    private AppController controller;
+    private Runnable onDataChanged;
     /**
      * Creates new form AirportForm
      */
     public AirportForm() {
+    this(new AppController(), null);
+}
+
+    public AirportForm(AppController controller, Runnable onDataChanged) {
         initComponents();
+
+        this.controller = controller;
+        this.onDataChanged = onDataChanged;
     }
 
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -1034,6 +1210,7 @@ public class AirportForm extends javax.swing.JFrame {
         jLabel3.setText("Pais");
 
         saveBtn.setText("Guardar");
+        saveBtn.addActionListener(this::saveBtnActionPerformed);
 
         jLabel4.setFont(new java.awt.Font("Segoe UI Black", 0, 18)); // NOI18N
         jLabel4.setText("CREAR AEROPUERTO");
@@ -1089,6 +1266,10 @@ public class AirportForm extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    private void saveBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveBtnActionPerformed
+        saveAirport();
+    }//GEN-LAST:event_saveBtnActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -1124,6 +1305,39 @@ public class AirportForm extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel4;
     private javax.swing.JButton saveBtn;
     // End of variables declaration//GEN-END:variables
+    private void saveAirport() {
+        try {
+            controller.addAirport(
+                    codeEntry.getText(),
+                    cityEntry.getText(),
+                    countryEntry.getText()
+            );
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Aeropuerto guardado correctamente.",
+                    "Éxito",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            codeEntry.setText("");
+            cityEntry.setText("");
+            countryEntry.setText("");
+
+            if (onDataChanged != null) {
+                onDataChanged.run();
+            }
+
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    ex.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
 }
 </file>
 
@@ -1514,6 +1728,9 @@ public class ConnectionsForm extends javax.swing.JFrame {
       <Properties>
         <Property name="text" type="java.lang.String" value="Guardar"/>
       </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="saveBtnActionPerformed"/>
+      </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="jLabel8">
       <Properties>
@@ -1521,41 +1738,40 @@ public class ConnectionsForm extends javax.swing.JFrame {
       </Properties>
     </Component>
     <Component class="javax.swing.JTextField" name="noEntry">
-      <Events>
-        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="noEntryActionPerformed"/>
-      </Events>
     </Component>
   </SubComponents>
 </Form>
 </file>
 
 <file path="src/main/java/Views/FlightForm.java">
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package Views;
+import Controllers.AppController;
+import LibreriasConInteligenciaArtesanal.ListaIA;
+import models.Airport;
 
-/**
- *
- * @author allan
- */
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JOptionPane;
+
 public class FlightForm extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(FlightForm.class.getName());
+    private AppController controller;
+    private Runnable onDataChanged;
 
-    /**
-     * Creates new form FlightForm
-     */
     public FlightForm() {
+    this(new AppController(), null);
+}
+
+    public FlightForm(AppController controller, Runnable onDataChanged) {
         initComponents();
+
+        this.controller = controller;
+        this.onDataChanged = onDataChanged;
+
+        loadAirports();
     }
 
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -1599,10 +1815,9 @@ public class FlightForm extends javax.swing.JFrame {
         jLabel7.setText("CREAR VUELO");
 
         saveBtn.setText("Guardar");
+        saveBtn.addActionListener(this::saveBtnActionPerformed);
 
         jLabel8.setText("No.");
-
-        noEntry.addActionListener(this::noEntryActionPerformed);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -1683,9 +1898,9 @@ public class FlightForm extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void noEntryActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_noEntryActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_noEntryActionPerformed
+    private void saveBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveBtnActionPerformed
+         saveFlight();
+    }//GEN-LAST:event_saveBtnActionPerformed
 
     /**
      * @param args the command line arguments
@@ -1729,6 +1944,81 @@ public class FlightForm extends javax.swing.JFrame {
     private javax.swing.JButton saveBtn;
     private javax.swing.JTextField timeEntry;
     // End of variables declaration//GEN-END:variables
+    private void loadAirports() {
+        DefaultComboBoxModel<String> originModel = new DefaultComboBoxModel<>();
+        DefaultComboBoxModel<String> destinyModel = new DefaultComboBoxModel<>();
+
+        ListaIA<Airport> airports = controller.getAirports();
+
+        for (int i = 0; i < airports.size(); i++) {
+            Airport airport = airports.getValue(i);
+            String text = controller.formatAirportForCombo(airport);
+
+            originModel.addElement(text);
+            destinyModel.addElement(text);
+        }
+
+        originCombo.setModel(originModel);
+        destinyCombo.setModel(destinyModel);
+    }
+
+    private void saveFlight() {
+        try {
+            Airport origin = controller.getAirportFromComboText(
+                    (String) originCombo.getSelectedItem()
+            );
+
+            Airport destination = controller.getAirportFromComboText(
+                    (String) destinyCombo.getSelectedItem()
+            );
+
+            double price = Double.parseDouble(priceEntry.getText().trim());
+            double distance = Double.parseDouble(distanceEntry.getText().trim());
+            double time = Double.parseDouble(timeEntry.getText().trim());
+
+            controller.addFlight(
+                    origin,
+                    destination,
+                    noEntry.getText(),
+                    price,
+                    distance,
+                    time
+            );
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Vuelo guardado correctamente.",
+                    "Éxito",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            noEntry.setText("");
+            priceEntry.setText("");
+            distanceEntry.setText("");
+            timeEntry.setText("");
+
+            if (onDataChanged != null) {
+                onDataChanged.run();
+            }
+
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Precio, distancia y tiempo deben ser números válidos.",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    ex.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
 }
 </file>
 
@@ -1855,19 +2145,35 @@ public class FlightForm extends javax.swing.JFrame {
 
 <file path="src/main/java/Views/MainView.java">
 package Views;
+
 import Controllers.AppController;
+import LibreriasConInteligenciaArtesanal.GrafoTurbo;
+import LibreriasConInteligenciaArtesanal.ListaIA;
+import models.Airport;
+import models.Flight;
+
+import com.mxgraph.layout.mxCircleLayout;
+import com.mxgraph.swing.mxGraphComponent;
+import com.mxgraph.view.mxGraph;
+
+import java.awt.BorderLayout;
+import java.util.HashMap;
+import java.util.Map;
+
+
 
 public class MainView extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(MainView.class.getName());
-    private Controllers.AppController controller = new Controllers.AppController();
+    private AppController controller = new AppController();
     
     
     public MainView() {
         initComponents();
+        refreshGraph();
     }
 
-
+    
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -1945,19 +2251,27 @@ public class MainView extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void airportBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_airportBtnActionPerformed
-        // TODO add your handling code here:
+        AirportForm form = new AirportForm(controller, this::refreshGraph);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_airportBtnActionPerformed
 
     private void connectionsBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_connectionsBtnActionPerformed
-        // TODO add your handling code here:
+        ConnectionsForm form = new ConnectionsForm(controller);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_connectionsBtnActionPerformed
 
     private void flightBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_flightBtnActionPerformed
-        // TODO add your handling code here:
+        FlightForm form = new FlightForm(controller, this::refreshGraph);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_flightBtnActionPerformed
 
     private void routeFormActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_routeFormActionPerformed
-        // TODO add your handling code here:
+        RouteForm form = new RouteForm(controller);
+        form.setLocationRelativeTo(this);
+        form.setVisible(true);
     }//GEN-LAST:event_routeFormActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -1970,16 +2284,83 @@ public class MainView extends javax.swing.JFrame {
     // End of variables declaration//GEN-END:variables
 
     private void refreshGraph() {
-    jPanel1.removeAll();
-    com.mxgraph.swing.mxGraphComponent graphComp =
-        new com.mxgraph.swing.mxGraphComponent(new com.mxgraph.view.mxGraph());
-    // ... agregar vértices y aristas desde controller.getAirports()
-    jPanel1.setLayout(new java.awt.BorderLayout());
-    jPanel1.add(graphComp, java.awt.BorderLayout.CENTER);
-    jPanel1.revalidate();
-}
+        jPanel1.removeAll();
+        jPanel1.setLayout(new BorderLayout());
 
+        mxGraph graphView = new mxGraph();
+        Object parent = graphView.getDefaultParent();
 
+        Map<String, Object> vertexMap = new HashMap<>();
+
+        graphView.getModel().beginUpdate();
+
+        try {
+            ListaIA<Airport> airports = controller.getAirports();
+
+            for (int i = 0; i < airports.size(); i++) {
+                Airport airport = airports.getValue(i);
+
+                Object vertex = graphView.insertVertex(
+                        parent,
+                        null,
+                        airport.code,
+                        20,
+                        20,
+                        90,
+                        40
+                );
+
+                vertexMap.put(airport.code, vertex);
+            }
+
+            for (int i = 0; i < airports.size(); i++) {
+                Airport origin = airports.getValue(i);
+
+                ListaIA<GrafoTurbo.Connection<Airport, Flight>> connections =
+                        controller.getConnections(origin);
+
+                for (int j = 0; j < connections.size(); j++) {
+                    GrafoTurbo.Connection<Airport, Flight> connection =
+                            connections.getValue(j);
+
+                    Airport destination = connection.destination;
+                    Flight flight = connection.edge;
+
+                    /*
+                     * Tu GrafoTurbo.addConnection() agrega la conexión en ambos sentidos.
+                     * Esta condición evita dibujar la misma arista dos veces.
+                     */
+                    if (origin.code.compareTo(destination.code) < 0) {
+                        Object originVertex = vertexMap.get(origin.code);
+                        Object destinationVertex = vertexMap.get(destination.code);
+
+                        if (originVertex != null && destinationVertex != null) {
+                            graphView.insertEdge(
+                                    parent,
+                                    null,
+                                    controller.formatFlightForGraph(flight),
+                                    originVertex,
+                                    destinationVertex
+                            );
+                        }
+                    }
+                }
+            }
+
+        } finally {
+            graphView.getModel().endUpdate();
+        }
+
+        mxCircleLayout layout = new mxCircleLayout(graphView);
+        layout.execute(parent);
+
+        mxGraphComponent graphComponent = new mxGraphComponent(graphView);
+        graphComponent.setConnectable(false);
+
+        jPanel1.add(graphComponent, BorderLayout.CENTER);
+        jPanel1.revalidate();
+        jPanel1.repaint();
+    }
 
 }
 </file>
