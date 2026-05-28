@@ -1,0 +1,1070 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+pom.xml
+src/main/java/interfaces/WeightCriterion.java
+src/main/java/LibreriasConInteligenciaArtesanal/Dijkstra.java
+src/main/java/LibreriasConInteligenciaArtesanal/GrafoTurbo.java
+src/main/java/LibreriasConInteligenciaArtesanal/ListaIA.java
+src/main/java/LibreriasConInteligenciaArtesanal/QueueIA.java
+src/main/java/LibreriasConInteligenciaArtesanal/QueuePriorityIA.java
+src/main/java/LibreriasConInteligenciaArtesanal/SetIA.java
+src/main/java/LibreriasConInteligenciaArtesanal/SuperMapWhitIA.java
+src/main/java/MainPackage/ProyectoPrograGrafos.java
+src/main/java/models/Airport.java
+src/main/java/models/DistanceCriterion.java
+src/main/java/models/Element.java
+src/main/java/models/Entry.java
+src/main/java/models/Flight.java
+src/main/java/models/Node.java
+src/main/java/models/PriceCriterion.java
+src/main/java/models/Result.java
+src/main/java/models/SuperPar.java
+src/main/java/models/TimeCriterion.java
+src/main/java/models/Weighable.java
+src/main/java/Views/MainView.form
+src/main/java/Views/MainView.java
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="pom.xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.mycompany</groupId>
+    <artifactId>ProyectoPrograGrafos</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>25</maven.compiler.release>
+        <exec.mainClass>com.mycompany.proyectoprogragrafos.ProyectoPrograGrafos</exec.mainClass>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>com.github.vlsi.mxgraph</groupId>
+            <artifactId>jgraphx</artifactId>
+            <version>4.2.2</version>
+        </dependency>
+    </dependencies>
+</project>
+</file>
+
+<file path="src/main/java/interfaces/WeightCriterion.java">
+package interfaces;
+
+public interface WeightCriterion<E> {
+    double getWeight(E edge);
+}
+</file>
+
+<file path="src/main/java/LibreriasConInteligenciaArtesanal/Dijkstra.java">
+package LibreriasConInteligenciaArtesanal;
+
+import models.*;
+import interfaces.WeightCriterion;
+
+public class Dijkstra<T, E> {
+
+    public Result<T> shortestPath(GrafoTurbo<T, E> graph, T start, T end, WeightCriterion<E> criterion) {
+        SuperMapWhitIA<T, Double> distances = new SuperMapWhitIA<>();
+        SuperMapWhitIA<T, T> previous = new SuperMapWhitIA<>();
+
+
+        ListaIA<T> nodes = graph.getNodes();
+        for (int i = 0; i < nodes.size(); i++) {
+            distances.put(nodes.getValue(i), Double.POSITIVE_INFINITY);
+        }
+        distances.put(start, 0.0);
+
+        QueuePriorityIA<Entry<T>> queue = new QueuePriorityIA<>();
+        queue.insert(new Entry<>(start, 0.0));
+
+        while (!queue.isEmpty()) {
+            Entry<T> current = queue.popMin();
+            T currentNode = current.node;
+            double currentDist = current.accumulatedWeight;
+
+            if (currentDist > distances.getValue(currentNode)) continue;
+            if (currentNode.equals(end)) break;
+
+            ListaIA<GrafoTurbo.Connection<T, E>> connections = graph.getConnections(currentNode);
+            for (int i = 0; i < connections.size(); i++) {
+                GrafoTurbo.Connection<T, E> conn = connections.getValue(i);
+                double edgeWeight = criterion.getWeight(conn.edge);
+                double newDist = currentDist + edgeWeight;
+
+                if (newDist < distances.getValue(conn.destination)) {
+                    distances.put(conn.destination, newDist);
+                    previous.put(conn.destination, currentNode);
+                    queue.insert(new Entry<>(conn.destination, newDist));
+                }
+            }
+        }
+
+        ListaIA<T> path = new ListaIA<>();
+        if (distances.getValue(end) == Double.POSITIVE_INFINITY) {
+            return new Result<>(path, Double.POSITIVE_INFINITY);
+        }
+
+        ListaIA<T> reversed = new ListaIA<>();
+        T current = end;
+        while (current != null) {
+            reversed.add(current);
+            current = previous.getValue(current);
+        }
+        for (int i = reversed.size() - 1; i >= 0; i--) {
+            path.add(reversed.getValue(i));
+        }
+
+        return new Result<>(path, distances.getValue(end));
+    }
+}
+</file>
+
+<file path="src/main/java/LibreriasConInteligenciaArtesanal/GrafoTurbo.java">
+package LibreriasConInteligenciaArtesanal;
+
+public class GrafoTurbo<T, E> {
+
+
+    public static class Connection<T, E> {
+        public T destination;
+        public E edge;
+
+        public Connection(T destination, E edge) {
+            this.destination = destination;
+            this.edge = edge;
+        }
+    }
+
+
+    private SuperMapWhitIA<T, ListaIA<Connection<T, E>>> adjacency;
+
+    public GrafoTurbo() {
+        adjacency = new SuperMapWhitIA<>();
+    }
+
+    public void addNode(T node) {
+        if (node == null) {
+            throw new IllegalArgumentException("No puede ser nulo");
+        }
+        if (!adjacency.containsKey(node)) {
+            adjacency.put(node, new ListaIA<>());
+        }
+    }
+
+
+    public void addConnection(T origin, T destination, E edge) {
+        if (edge == null) {
+            throw new IllegalArgumentException("Arista no puede ser nula");
+        }
+        addNode(origin);
+        addNode(destination);
+        adjacency.getValue(origin).add(new Connection<>(destination, edge));
+        adjacency.getValue(destination).add(new Connection<>(origin, edge));
+    }
+
+
+
+    public void addDirectedConnection(T origin, T destination, E edge) {
+        if (edge == null) {
+            throw new IllegalArgumentException("Arista no puede ser nula");
+        }
+        addNode(origin);
+        addNode(destination);
+        adjacency.getValue(origin).add(new Connection<>(destination, edge));
+    }
+
+
+    public ListaIA<Connection<T, E>> getConnections(T node) {
+        if (!adjacency.containsKey(node)) {
+            throw new IllegalArgumentException("Nodo no existe en el grafo: " + node);
+        }
+        return adjacency.getValue(node);
+    }
+
+    public ListaIA<T> getNodes() {
+        return adjacency.keys();
+    }
+
+    public boolean containsNode(T node) {
+        return adjacency.containsKey(node);
+    }
+
+    public void showConnections() {
+        System.out.println("conexiones");
+        ListaIA<T> nodes = getNodes();
+        for (int i = 0; i < nodes.size(); i++) {
+            T node = nodes.getValue(i);
+            System.out.println("Desde " + node + ":");
+            ListaIA<Connection<T, E>> connections = adjacency.getValue(node);
+            for (int j = 0; j < connections.size(); j++) {
+                Connection<T, E> conn = connections.getValue(j);
+                System.out.println("  -> " + conn.destination + " via " + conn.edge);
+            }
+        }
+    }
+
+    public String getConnectionsAsString(T node) {
+        if (!adjacency.containsKey(node)) {
+            throw new IllegalArgumentException("nodo no existe en el grafo: " + node);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("Conexiones desde ").append(node).append(":\n");
+
+        ListaIA<Connection<T, E>> connections = adjacency.getValue(node);
+        if (connections.isEmpty()) {
+            sb.append("  (sin conexiones)\n");
+            return sb.toString();
+        }
+
+        for (int i = 0; i < connections.size(); i++) {
+            Connection<T, E> conn = connections.getValue(i);
+            sb.append("  -> ").append(conn.destination)
+                    .append(" via ").append(conn.edge).append("\n");
+        }
+        return sb.toString();
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("conexiones\n");
+
+        ListaIA<T> nodes = getNodes();
+        for (int i = 0; i < nodes.size(); i++) {
+            T node = nodes.getValue(i);
+            sb.append("Desde ").append(node).append(":\n");
+
+            ListaIA<Connection<T, E>> connections = adjacency.getValue(node);
+            for (int j = 0; j < connections.size(); j++) {
+                Connection<T, E> conn = connections.getValue(j);
+                sb.append("  -> ").append(conn.destination)
+                        .append(" via ").append(conn.edge).append("\n");
+            }
+        }
+
+        return sb.toString();
+    }
+}
+</file>
+
+<file path="src/main/java/LibreriasConInteligenciaArtesanal/ListaIA.java">
+package LibreriasConInteligenciaArtesanal;
+
+public class ListaIA<T> {
+    private Object[] data;
+    private int length;
+
+    public ListaIA() {
+        data = new Object[10];
+        length = 0;
+    }
+
+    public void add(T valor){
+        if(this.length == data.length){
+            enlarge();
+        }
+        data[length] = valor;
+        length++;
+    }
+    private void enlarge(){
+        int newCapacity = data.length * 2;
+        Object[] aux = new Object[newCapacity];
+        for(int i = 0; i < length; i++){
+            aux[i] = data[i];
+        }
+        data = aux;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T getValue(int i){
+        if(i < 0 || i >= length){
+            throw new IndexOutOfBoundsException("Index out of bounds, indice is " + i + " i n v a l i d XD");
+        }
+        return (T) data[i];
+
+    }
+
+    public int size(){
+        return length;
+    }
+
+    public boolean isEmpty(){
+        return length == 0;
+    }
+
+    public boolean contains(T valor){
+        for(int i = 0; i < length; i++){
+            if(valor.equals(getValue(i))){
+                return true;
+            }
+        }
+        return false;
+    }
+
+}
+</file>
+
+<file path="src/main/java/LibreriasConInteligenciaArtesanal/QueueIA.java">
+package LibreriasConInteligenciaArtesanal;
+
+import models.Node;
+
+import java.util.function.Supplier;
+
+public class QueueIA<Z> {
+
+    private Node<Z> front;
+    private Node<Z> back;
+    private int length;
+
+    public QueueIA() {
+        this.front = null;
+        this.back = null;
+        this.length = 0;
+    }
+
+    public void addToQueue(Z value){
+        Node<Z> newNode = new Node<>(value);
+        if(this.front == null){
+            this.front = newNode;
+            this.back = newNode;
+        }else {
+            back.next = newNode;
+            back = newNode;
+        }
+        this.length++;
+    }
+
+    public Z removeFromQueue(){
+        if(this.front == null){
+            throw  new IllegalStateException("queue is empty");
+        }
+        Z value = front.value;
+        front = front.next;
+
+        if(front == null){
+            back = null;
+        }
+        this.length--;
+        return value;
+    }
+
+    public boolean isEmpty(){
+        return this.length == 0;
+    }
+    private final Supplier<Integer> getLengthFunction = () -> this.length;
+
+    public int getLength(){
+        return getLengthFunction.get();
+    }
+}
+</file>
+
+<file path="src/main/java/LibreriasConInteligenciaArtesanal/QueuePriorityIA.java">
+package LibreriasConInteligenciaArtesanal;
+
+import models.Weighable;
+
+public class QueuePriorityIA<T extends Weighable> {
+
+    private ListaIA<T> elementos;
+
+    public QueuePriorityIA() {
+        elementos = new ListaIA<>();
+    }
+
+    public void insert(T value) {
+        elementos.add( value);
+    }
+
+
+    public T popMin() {
+        if (elementos.isEmpty()) {
+            throw new RuntimeException("Cola vacía");
+        }
+
+
+        int indiceMin = 0;
+        for (int i = 1; i < elementos.size(); i++) {
+            if (elementos.getValue(i).getWeight() < elementos.getValue(indiceMin).getWeight()) {
+                indiceMin = i;
+            }
+        }
+
+        T min = elementos.getValue(indiceMin);
+
+
+        ListaIA<T> nueva = new ListaIA<>();
+        for (int i = 0; i < elementos.size(); i++) {
+            if (i != indiceMin) {
+                nueva.add(elementos.getValue(i));
+            }
+        }
+        elementos = nueva;
+
+        return min;
+    }
+
+    public boolean isEmpty() {
+        return elementos.isEmpty();
+    }
+
+}
+</file>
+
+<file path="src/main/java/LibreriasConInteligenciaArtesanal/SetIA.java">
+package LibreriasConInteligenciaArtesanal;
+
+public class SetIA<DAVIDXJHON> {
+    private ListaIA<DAVIDXJHON> elements;
+
+    public SetIA(){
+        this.elements = new ListaIA<>();
+    }
+
+    public void add(DAVIDXJHON element){
+        if(!elements.contains(element)){
+            elements.add(element);
+        }
+    }
+
+    public boolean contains(DAVIDXJHON element){
+        return elements.contains(element);
+    }
+
+    public int size(){
+        return elements.size();
+    }
+
+}
+</file>
+
+<file path="src/main/java/LibreriasConInteligenciaArtesanal/SuperMapWhitIA.java">
+package LibreriasConInteligenciaArtesanal;
+
+import models.SuperPar;
+
+public class SuperMapWhitIA<JAVA_MICROCONTROLADOR,JAVASCRIPT> {
+    private ListaIA<SuperPar<JAVA_MICROCONTROLADOR,JAVASCRIPT>> peers;
+
+    public  SuperMapWhitIA(){
+        peers = new ListaIA<>();
+    }
+
+    public void put(JAVA_MICROCONTROLADOR key,JAVASCRIPT value){
+        for (int i = 0; i < peers.size(); i++) {
+            SuperPar<JAVA_MICROCONTROLADOR, JAVASCRIPT> p = peers.getValue(i);
+            if (p.key.equals(key)) {
+                p.value = value;
+                return;
+            }
+        }
+        peers.add(new SuperPar<>(key, value));
+    }
+
+    public JAVASCRIPT getValue(JAVA_MICROCONTROLADOR key) {
+        for (int i = 0; i < peers.size(); i++) {
+            SuperPar<JAVA_MICROCONTROLADOR, JAVASCRIPT> p = peers.getValue(i);
+            if (p.key.equals(key)) {
+                return p.value;
+            }
+        }
+        return null;
+    }
+
+    public boolean containsKey(JAVA_MICROCONTROLADOR key) {
+        for (int i = 0; i < peers.size(); i++) {
+            if (peers.getValue(i).key.equals(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public int size() {
+        return peers.size();
+    }
+
+    public ListaIA<JAVA_MICROCONTROLADOR> keys() {
+        ListaIA<JAVA_MICROCONTROLADOR> list = new ListaIA<>();
+        for (int i = 0; i < peers.size(); i++) {
+            list.add(peers.getValue(i).key);
+        }
+        return list;
+    }
+}
+</file>
+
+<file path="src/main/java/MainPackage/ProyectoPrograGrafos.java">
+package MainPackage;
+
+import LibreriasConInteligenciaArtesanal.Dijkstra;
+import LibreriasConInteligenciaArtesanal.GrafoTurbo;
+import LibreriasConInteligenciaArtesanal.QueueIA;
+import models.*;
+
+public class ProyectoPrograGrafos {
+
+    public static void main(String[] args) {
+        GrafoTurbo<Airport, Flight> network = new GrafoTurbo<>();
+
+        Airport gua = new Airport("GUA", "Guatemala City", "Guatemala");
+        Airport mex = new Airport("MEX", "Mexico City", "Mexico");
+        Airport mia = new Airport("MIA", "Miami", "USA");
+        Airport lax = new Airport("LAX", "Los Angeles", "USA");
+        Airport jfk = new Airport("JFK", "New York", "USA");
+
+
+        network.addConnection(gua, mex, new Flight("AV101", 250, 1100, 150));
+        network.addConnection(gua, mia, new Flight("AA202", 380, 1600, 180));
+        network.addConnection(mex, lax, new Flight("AM303", 320, 2500, 240));
+        network.addConnection(mex, jfk, new Flight("DL404", 450, 3360, 300));
+        network.addConnection(mia, jfk, new Flight("AA505", 200, 1750, 180));
+        network.addConnection(mia, lax, new Flight("AA606", 350, 3760, 350));
+        network.addConnection(lax, jfk, new Flight("UA707", 280, 3940, 360));
+
+        System.out.println(network);
+
+        Airport gua2 = new Airport("GUA", "Guatemala City", "Guatemala");
+        Airport gua3 = new Airport("MEX", "Mexico City", "Mexico");
+        Airport mia4 = new Airport("MIA", "Miami", "USA");
+
+        network.addNode(gua2);
+        network.addNode(gua3);
+        network.addNode(mia4);
+
+
+        network.addConnection(gua2, gua3, new Flight("AV101", 250, 1100, 150));
+        network.addConnection(gua2, mia4, new Flight("AA202", 380, 1600, 180));
+        network.addConnection(gua3, mia4, new Flight("AM303", 200, 2000, 200));
+
+
+        System.out.println(network.getConnectionsAsString(gua));
+
+        Dijkstra<Airport, Flight> dijkstra = new Dijkstra<>();
+
+        // Vuelo mas barato
+        System.out.println();
+        System.out.println("dinero GUA -> JFK");
+       Result<Airport> cheap = dijkstra.shortestPath(
+                network, gua, jfk, new PriceCriterion()
+        );
+        printResult(cheap, "QTZ");
+
+        // Vuelo rapidin
+        System.out.println();
+        System.out.println("rapido GUA -> JFK");
+        Result<Airport> fast = dijkstra.shortestPath(
+                network, gua, jfk, new TimeCriterion()
+        );
+        printResult(fast, "minutes");
+
+        // Vuelo corto
+        System.out.println();
+        System.out.println(" distancia GUA -> JFK ");
+       Result<Airport> shortDist = dijkstra.shortestPath(
+                network, gua, jfk, new DistanceCriterion()
+        );
+        printResult(shortDist, "km");
+    }
+
+    static void printResult(Result<Airport> result, String unit) {
+        System.out.println("Total: " + result.totalWeight + " " + unit);
+        for (int i = 0; i < result.path.size(); i++) {
+            System.out.print(result.path.getValue(i).code);
+            if (i < result.path.size() - 1) System.out.print(" -> ");
+        }
+        System.out.println();
+    }
+}
+</file>
+
+<file path="src/main/java/models/Airport.java">
+package models;
+
+public class Airport {
+    public String code;
+    public String city;
+    public String country;
+
+    public Airport(String code, String city, String country) {
+        this.code = code;
+        this.city = city;
+        this.country = country;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Airport)) return false;
+        Airport other = (Airport) o;
+        return this.code.equals(other.code);
+    }
+
+    @Override
+    public int hashCode() {
+        return code.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return code + " (" + city + ", " + country + ")";
+    }
+}
+</file>
+
+<file path="src/main/java/models/DistanceCriterion.java">
+package models;
+
+
+import interfaces.WeightCriterion;
+
+public class DistanceCriterion implements WeightCriterion<Flight> {
+    @Override
+    public double getWeight(Flight flight) {
+        return flight.distance;
+    }
+}
+</file>
+
+<file path="src/main/java/models/Element.java">
+package models;
+
+public class Element implements Weighable {
+    public int value;
+    public int priority;
+    Element(int v, int p) { value = v; priority = p; }
+
+    @Override
+    public double getWeight() {
+        return priority;
+    }
+}
+</file>
+
+<file path="src/main/java/models/Entry.java">
+package models;
+
+public class Entry<T> implements Weighable {
+    public T node;
+    public double accumulatedWeight;
+
+    public Entry(T node, double weight) {
+        this.node = node;
+        this.accumulatedWeight = weight;
+    }
+
+    @Override
+    public double getWeight() {
+        return accumulatedWeight;
+    }
+}
+</file>
+
+<file path="src/main/java/models/Flight.java">
+package models;
+
+public class Flight {
+    public double price;
+    public double distance;
+    public double time;
+    public String flightNumber;
+
+    public Flight(String flightNumber, double price, double distance, double time) {
+        this.flightNumber = flightNumber;
+        this.price = price;
+        this.distance = distance;
+        this.time = time;
+    }
+
+    @Override
+    public String toString() {
+        return flightNumber;
+    }
+}
+</file>
+
+<file path="src/main/java/models/Node.java">
+package models;
+
+public class Node<T> {
+    public T value;
+    public Node<T> next;
+
+    public Node(T value){
+        this.value = value;
+        this.next = null;
+    }
+
+}
+</file>
+
+<file path="src/main/java/models/PriceCriterion.java">
+package models;
+
+import interfaces.WeightCriterion;
+
+public class PriceCriterion implements WeightCriterion<Flight> {
+    @Override
+    public double getWeight(Flight flight) {
+        return flight.price;
+    }
+}
+</file>
+
+<file path="src/main/java/models/Result.java">
+package models;
+
+import LibreriasConInteligenciaArtesanal.ListaIA;
+
+public class Result<T> {
+    public ListaIA<T> path;
+    public double totalWeight;
+
+    public Result(ListaIA<T> path, double totalWeight) {
+        this.path = path;
+        this.totalWeight = totalWeight;
+    }
+}
+</file>
+
+<file path="src/main/java/models/SuperPar.java">
+package models;
+
+public class SuperPar<K,V> {
+    public K key;
+    public V value;
+
+    public SuperPar(K key, V value) {
+        this.key = key;
+        this.value = value;
+    }
+
+}
+</file>
+
+<file path="src/main/java/models/TimeCriterion.java">
+package models;
+
+
+import interfaces.WeightCriterion;
+
+public class TimeCriterion implements WeightCriterion<Flight> {
+    @Override
+    public double getWeight(Flight flight) {
+        return flight.time;
+    }
+}
+</file>
+
+<file path="src/main/java/models/Weighable.java">
+package models;
+
+public interface Weighable {
+    double getWeight();
+}
+</file>
+
+<file path="src/main/java/Views/MainView.form">
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<Form version="1.3" maxVersion="1.9" type="org.netbeans.modules.form.forminfo.JFrameFormInfo">
+  <Properties>
+    <Property name="defaultCloseOperation" type="int" value="3"/>
+  </Properties>
+  <SyntheticProperties>
+    <SyntheticProperty name="formSizePolicy" type="int" value="1"/>
+    <SyntheticProperty name="generateCenter" type="boolean" value="false"/>
+  </SyntheticProperties>
+  <AuxValues>
+    <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
+    <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
+    <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
+    <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="3"/>
+    <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
+    <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
+  </AuxValues>
+
+  <Layout>
+    <DimensionLayout dim="0">
+      <Group type="103" groupAlignment="0" attributes="0">
+          <Group type="102" alignment="0" attributes="0">
+              <EmptySpace min="-2" pref="19" max="-2" attributes="0"/>
+              <Group type="103" groupAlignment="1" attributes="0">
+                  <Group type="102" attributes="0">
+                      <Component id="jButton1" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                      <Component id="jButton2" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace min="-2" pref="99" max="-2" attributes="0"/>
+                      <Component id="jButton3" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace min="-2" pref="136" max="-2" attributes="0"/>
+                      <Component id="jButton4" min="-2" max="-2" attributes="0"/>
+                  </Group>
+                  <Group type="103" groupAlignment="0" max="-2" attributes="0">
+                      <Component id="jPanel1" max="32767" attributes="0"/>
+                      <Component id="jSeparator1" pref="758" max="32767" attributes="0"/>
+                  </Group>
+              </Group>
+              <EmptySpace max="32767" attributes="0"/>
+          </Group>
+      </Group>
+    </DimensionLayout>
+    <DimensionLayout dim="1">
+      <Group type="103" groupAlignment="0" attributes="0">
+          <Group type="102" alignment="0" attributes="0">
+              <EmptySpace max="-2" attributes="0"/>
+              <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
+              <EmptySpace max="-2" attributes="0"/>
+              <Component id="jSeparator1" min="-2" pref="10" max="-2" attributes="0"/>
+              <EmptySpace type="separate" max="-2" attributes="0"/>
+              <Group type="103" groupAlignment="3" attributes="0">
+                  <Component id="jButton1" alignment="3" min="-2" max="-2" attributes="0"/>
+                  <Component id="jButton2" alignment="3" min="-2" max="-2" attributes="0"/>
+                  <Component id="jButton3" alignment="3" min="-2" max="-2" attributes="0"/>
+                  <Component id="jButton4" alignment="3" min="-2" max="-2" attributes="0"/>
+              </Group>
+              <EmptySpace pref="51" max="32767" attributes="0"/>
+          </Group>
+      </Group>
+    </DimensionLayout>
+  </Layout>
+  <SubComponents>
+    <Container class="javax.swing.JPanel" name="jPanel1">
+
+      <Layout>
+        <DimensionLayout dim="0">
+          <Group type="103" groupAlignment="0" attributes="0">
+              <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+          </Group>
+        </DimensionLayout>
+        <DimensionLayout dim="1">
+          <Group type="103" groupAlignment="0" attributes="0">
+              <EmptySpace min="0" pref="355" max="32767" attributes="0"/>
+          </Group>
+        </DimensionLayout>
+      </Layout>
+    </Container>
+    <Component class="javax.swing.JSeparator" name="jSeparator1">
+    </Component>
+    <Component class="javax.swing.JButton" name="jButton1">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="Crear Aeropuerto"/>
+      </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="jButton1ActionPerformed"/>
+      </Events>
+    </Component>
+    <Component class="javax.swing.JButton" name="jButton2">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="Programar Vuelos"/>
+      </Properties>
+    </Component>
+    <Component class="javax.swing.JButton" name="jButton3">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="Log de Conexiones"/>
+      </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="jButton3ActionPerformed"/>
+      </Events>
+    </Component>
+    <Component class="javax.swing.JButton" name="jButton4">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="Encontrar ruta corta"/>
+      </Properties>
+    </Component>
+  </SubComponents>
+</Form>
+</file>
+
+<file path="src/main/java/Views/MainView.java">
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
+ */
+package Views;
+
+/**
+ *
+ * @author allan
+ */
+public class MainView extends javax.swing.JFrame {
+    
+    private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(MainView.class.getName());
+
+    /**
+     * Creates new form MainView
+     */
+    public MainView() {
+        initComponents();
+    }
+
+    /**
+     * This method is called from within the constructor to initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is always
+     * regenerated by the Form Editor.
+     */
+    @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    private void initComponents() {
+
+        jPanel1 = new javax.swing.JPanel();
+        jSeparator1 = new javax.swing.JSeparator();
+        jButton1 = new javax.swing.JButton();
+        jButton2 = new javax.swing.JButton();
+        jButton3 = new javax.swing.JButton();
+        jButton4 = new javax.swing.JButton();
+
+        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 0, Short.MAX_VALUE)
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 355, Short.MAX_VALUE)
+        );
+
+        jButton1.setText("Crear Aeropuerto");
+        jButton1.addActionListener(this::jButton1ActionPerformed);
+
+        jButton2.setText("Programar Vuelos");
+
+        jButton3.setText("Log de Conexiones");
+        jButton3.addActionListener(this::jButton3ActionPerformed);
+
+        jButton4.setText("Encontrar ruta corta");
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGap(19, 19, 19)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jButton1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(jButton2)
+                        .addGap(99, 99, 99)
+                        .addComponent(jButton3)
+                        .addGap(136, 136, 136)
+                        .addComponent(jButton4))
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jSeparator1, javax.swing.GroupLayout.DEFAULT_SIZE, 758, Short.MAX_VALUE)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 10, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jButton1)
+                    .addComponent(jButton2)
+                    .addComponent(jButton3)
+                    .addComponent(jButton4))
+                .addContainerGap(51, Short.MAX_VALUE))
+        );
+
+        pack();
+    }// </editor-fold>//GEN-END:initComponents
+
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jButton3ActionPerformed
+
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String args[]) {
+        /* Set the Nimbus look and feel */
+        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
+        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
+         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
+         */
+        try {
+            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex) {
+            logger.log(java.util.logging.Level.SEVERE, null, ex);
+        }
+        //</editor-fold>
+
+        /* Create and display the form */
+        java.awt.EventQueue.invokeLater(() -> new MainView().setVisible(true));
+    }
+
+    // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton jButton1;
+    private javax.swing.JButton jButton2;
+    private javax.swing.JButton jButton3;
+    private javax.swing.JButton jButton4;
+    private javax.swing.JPanel jPanel1;
+    private javax.swing.JSeparator jSeparator1;
+    // End of variables declaration//GEN-END:variables
+}
+</file>
+
+</files>
