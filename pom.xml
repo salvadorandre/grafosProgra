@@ -10,4 +10,11 @@
         <maven.compiler.release>25</maven.compiler.release>
         <exec.mainClass>com.mycompany.proyectoprogragrafos.ProyectoPrograGrafos</exec.mainClass>
     </properties>
+    <dependencies>
+        <dependency>
+            <groupId>com.github.vlsi.mxgraph</groupId>
+            <artifactId>jgraphx</artifactId>
+            <version>4.2.2</version>
+        </dependency>
+    </dependencies>
 </project>
